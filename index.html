@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Inference Simulators 03 — What You Are Simulating: LLM Inference Workloads</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&family=Geist+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #1c1815;
+            --bg-card: #231e1a;
+            --bg-code: #2b2520;
+            --text-primary: #efe8dc;
+            --text-secondary: #a2978b;
+            --accent: #aabd59;
+            --accent-dim: #aabd5944;
+            --accent-glow: #aabd5933;
+            --border: #3a322b;
+            --font-display: 'Bricolage Grotesque', sans-serif;
+            --font-mono: 'Geist Mono', 'Geist Mono', monospace;
+            --font-body: 'Instrument Sans', sans-serif;
+            --max-width: 900px;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 17px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* ── Header ── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .series-label {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1.2;
+            margin-bottom: 1rem;
+        }
+
+        .hero h1 .accent {
+            color: var(--accent);
+        }
+
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 2rem;
+        }
+
+        /* ── Tag Pills ── */
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+            white-space: nowrap;
+        }
+
+        /* ── Pipeline Flow Bar ── */
+        .pipeline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+            max-width: var(--max-width);
+        }
+
+        .pipeline-step {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.3rem 0.7rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        .pipeline-arrow {
+            color: var(--accent);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        /* ── Slides ── */
+        .slide {
+            min-height: 100vh;
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 4rem 1.5rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide-number {
+            font-family: var(--font-display);
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--accent-dim);
+            position: absolute;
+            top: 2rem;
+            right: 1.5rem;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .slide h2 {
+            font-family: var(--font-display);
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+            line-height: 1.25;
+        }
+
+        .slide h3 {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .slide p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .slide p strong {
+            color: var(--text-primary);
+        }
+
+        .slide ul, .slide ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        .slide li {
+            margin-bottom: 0.4rem;
+        }
+
+        .slide li strong {
+            color: var(--text-primary);
+        }
+
+        /* ── Code Blocks ── */
+        .code-block {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1.25rem 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            background: rgba(170,189,89,0.08);
+            padding: 0.4rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .code-block pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #dad1c5;
+        }
+
+        /* Syntax highlighting (manual) */
+        .kw { color: #de805a; }
+        .fn { color: #d7bbdf; }
+        .str { color: #bcdbd4; }
+        .cm { color: #a2978b; font-style: italic; }
+        .num { color: #97cdc6; }
+        .type { color: #e3b174; }
+        .dir { color: #de805a; }
+        .mac { color: #e3b174; }
+
+        /* ── Tables ── */
+        .table-wrap {
+            overflow-x: auto;
+            margin: 1.25rem 0;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: var(--bg-code);
+            color: var(--accent);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-display);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) td {
+            background: rgba(35,30,26,0.5);
+        }
+
+        /* ── Diagrams ── */
+        .diagram-flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-box {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .diagram-box.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(170,189,89,0.08);
+        }
+
+        .diagram-box.dim {
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        .diagram-arrow {
+            color: var(--accent);
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        /* Vertical flow diagrams */
+        .diagram-vertical {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-vertical .diagram-arrow {
+            font-size: 1.1rem;
+        }
+
+        /* Nested hierarchy diagram */
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .hierarchy-level {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .hierarchy-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .hierarchy-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .hierarchy-item {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .hierarchy-item.accent {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(170,189,89,0.08);
+        }
+
+        /* Grid diagram */
+        .diagram-grid {
+            display: grid;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .diagram-grid.cols-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .diagram-grid.cols-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .diagram-panel {
+            padding: 1rem;
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .diagram-panel.accent-border {
+            border-left: 3px solid var(--accent);
+        }
+
+        .diagram-panel h4 {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .diagram-panel p, .diagram-panel ul {
+            font-size: 0.85rem;
+        }
+
+        /* ── Callout Boxes ── */
+        .callout {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.25rem 0;
+        }
+
+        .callout p {
+            margin-bottom: 0;
+        }
+
+        .callout .callout-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.3rem;
+        }
+
+        /* ── Tier Visual ── */
+        .tier-visual {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .tier-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .tier-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 90px;
+            text-align: right;
+        }
+
+        .tier-fill {
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            transition: width 0.6s ease;
+        }
+
+        .tier-cost {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            min-width: 70px;
+        }
+
+        /* ── Contents list ── */
+        .contents-list {
+            list-style: none;
+            padding-left: 0;
+            counter-reset: contents;
+        }
+
+        .contents-list li {
+            counter-increment: contents;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contents-list li:last-child {
+            border-bottom: none;
+        }
+
+        .contents-list li::before {
+            content: counter(contents, decimal-leading-zero);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 2rem;
+        }
+
+        .contents-list a {
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .contents-list a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Footer ── */
+        .footer {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            max-width: var(--max-width);
+            margin: 0 auto;
+        }
+
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 640px) {
+            .slide {
+                padding: 3rem 1rem;
+                min-height: auto;
+            }
+
+            .slide-number {
+                font-size: 3rem;
+                top: 1.5rem;
+                right: 1rem;
+            }
+
+            .slide h2 {
+                font-size: 1.5rem;
+            }
+
+            .diagram-grid.cols-2,
+            .diagram-grid.cols-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .pipeline {
+                gap: 0.15rem;
+            }
+
+            .pipeline-step {
+                font-size: 0.6rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+
+            table {
+                font-size: 0.78rem;
+            }
+
+            .tier-label {
+                min-width: 60px;
+                font-size: 0.65rem;
+            }
+
+            .tier-fill {
+                font-size: 0.6rem;
+                height: 26px;
+            }
+        }
+
+        /* ── Interactive controls (added for Local LLM series) ── */
+        .control-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin: 1.25rem 0;
+        }
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .control-row label {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 180px;
+        }
+        .control-row input[type="range"] {
+            flex: 1;
+            min-width: 160px;
+            accent-color: var(--accent);
+        }
+        .control-row input[type="number"],
+        .control-row select {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            border-radius: 4px;
+            padding: 0.3rem 0.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+        .control-row .val {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent);
+            min-width: 80px;
+            text-align: right;
+        }
+        .btn {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            padding: 0.4rem 0.9rem;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .btn:hover { background: rgba(170,189,89,0.2); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn.secondary {
+            background: var(--bg-code);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+        .result-box {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            margin-top: 0.75rem;
+        }
+        .result-box .line-label { color: var(--text-secondary); }
+        .result-box .line-val   { color: var(--accent); font-weight: 600; }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .metric {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            text-align: center;
+        }
+        .metric .metric-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .metric .metric-value {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            color: var(--accent);
+            font-weight: 600;
+            margin-top: 0.2rem;
+        }
+
+        /* Canvas / SVG containers */
+        .canvas-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1.25rem 0;
+            overflow-x: auto;
+        }
+        .canvas-wrap canvas,
+        .canvas-wrap svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+
+        /* Small inline badge */
+        .badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+            margin-left: 0.3rem;
+        }
+        .badge.ok    { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .badge.warn  { border-color: #e3b174; color: #e3b174; background: rgba(227,177,116,0.08); }
+        .badge.bad   { border-color: #de805a; color: #de805a; background: rgba(222,128,90,0.08); }
+
+
+        /* ── LLM Inference Simulators additions ── */
+        .canvas-wrap canvas { image-rendering: auto; display: block; width: 100%; height: auto; }
+        .canvas-wrap svg { max-width: 100%; height: auto; }
+        .ladder { display: grid; gap: 0.4rem; margin: 1.25rem 0; }
+        .ladder-row {
+            display: grid; grid-template-columns: 11rem 1fr 7.5rem; gap: 0.75rem; align-items: center;
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+            padding: 0.55rem 0.85rem; font-size: 0.88rem;
+        }
+        .ladder-row .rung { font-family: var(--font-display); font-weight: 600; color: var(--accent); }
+        .ladder-row .speed { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-secondary); text-align: right; }
+        .res-list { list-style: none; padding: 0; margin: 0.75rem 0; }
+        .res-list li { padding: 0.6rem 0; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+        .res-list li:last-child { border-bottom: none; }
+        .res-list .what { color: var(--text-secondary); display: block; font-size: 0.86rem; margin-top: 0.15rem; }
+        .res-list a { color: var(--accent); text-decoration: none; }
+        .res-list a:hover { text-decoration: underline; }
+        .qa { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin: 0.6rem 0; padding: 0.2rem 1rem; }
+        .qa summary { cursor: pointer; padding: 0.6rem 0; font-weight: 600; }
+        .qa p, .qa ul { margin-bottom: 0.75rem; font-size: 0.92rem; }
+        .sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.4rem 1.25rem; }
+        .chart-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .chart-title { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+        .slide a { color: var(--accent); }
+        @media (max-width: 640px) {
+            .ladder-row { grid-template-columns: 1fr; gap: 0.2rem; }
+            .ladder-row .speed { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="hero">
+    <div class="series-label">LLM Inference Simulators &mdash; Presentation 03</div>
+    <h1>What You Are Simulating &mdash; <span class="accent">LLM Inference</span> Workloads</h1>
+    <p class="subtitle">Prefill versus decode, the roofline, KV-cache arithmetic, batching and parallelism &mdash; the first-order physics every LLM inference simulator must get right, with the formulas to put in a cost model.</p>
+
+    <div class="tags">
+        <span class="tag">Prefill</span>
+        <span class="tag">Decode</span>
+        <span class="tag">Roofline</span>
+        <span class="tag">KV cache</span>
+        <span class="tag">Batching</span>
+        <span class="tag">TP / PP / EP</span>
+    </div>
+
+    <div class="pipeline">
+        <span class="pipeline-step">FLOPs</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Bytes</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Roofline</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">KV</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">Batching</span>
+        <span class="pipeline-arrow">&rarr;</span>
+        <span class="pipeline-step">SLOs</span>
+    </div>
+</header>
+
+<section class="slide" id="slide-00">
+    <div class="slide-number">00</div>
+    <h2>Topics We'll Cover</h2>
+    <ul class="contents-list">
+        <li><a href="#slide-01">Two Phases: Prefill and Decode</a></li>
+        <li><a href="#slide-02">Counting FLOPs</a></li>
+        <li><a href="#slide-03">Counting Bytes</a></li>
+        <li><a href="#slide-04">The Roofline</a></li>
+        <li><a href="#slide-05">Interactive: Put a Batch on the Roofline</a></li>
+        <li><a href="#slide-06">KV-Cache Arithmetic</a></li>
+        <li><a href="#slide-07">Batching: Static, Continuous, Chunked, Paged</a></li>
+        <li><a href="#slide-08">Parallelism and Its Communication Bill</a></li>
+        <li><a href="#slide-09">The Metrics Users Feel: TTFT, TPOT, Goodput</a></li>
+        <li><a href="#slide-10">A Cost-Model Checklist</a></li>
+        <li><a href="#slide-11">What to Take Away</a></li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-01">
+    <div class="slide-number">01</div>
+    <h2>Two Phases: Prefill and Decode</h2>
+    <p>Every LLM request runs in two phases with opposite hardware characters. Getting this distinction into the simulator is the single most important modelling step.</p>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Prefill: read the prompt</h4>
+            <ul>
+                <li>All <em>s</em> prompt tokens go through the model in one forward pass.</li>
+                <li>Weight matrices multiply <em>s</em>-row activation matrices: matrix&ndash;matrix (GEMM).</li>
+                <li>Writes K and V for every prompt token into the KV cache.</li>
+                <li>Produces the <strong>first output token</strong>, so it sets <strong>TTFT</strong>.</li>
+                <li><strong>Compute-bound</strong> for prompts beyond a few hundred tokens.</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Decode: write the answer</h4>
+            <ul>
+                <li>One new token per sequence per step, repeated hundreds of times.</li>
+                <li>Weights multiply a single row per sequence: matrix&ndash;vector (GEMV), or a thin GEMM across a batch.</li>
+                <li>Reads the whole KV cache of every sequence in the batch, every step.</li>
+                <li>Sets <strong>TPOT</strong>, the time per output token.</li>
+                <li><strong>Memory-bandwidth-bound</strong> until the batch is very large.</li>
+            </ul>
+        </div>
+    </div>
+    <div class="callout">
+        <div class="callout-label">The consequence</div>
+        <p>A machine tuned for one phase is mistuned for the other. Running both on the same device makes them interfere: a long prefill stalls every decode in the batch. That tension motivates disaggregation (deck 05).</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-02">
+    <div class="slide-number">02</div>
+    <h2>Counting FLOPs</h2>
+    <p>For a dense decoder with <em>P</em> matmul parameters, <em>L</em> layers and model width <em>d</em>:</p>
+    <div class="code-block">
+        <div class="code-header">FLOPs per token (forward pass)</div>
+        <pre><code>linear layers      2 &middot; P                       <span class="cm"># one multiply + one add per weight</span>
+attention at pos c 4 &middot; L &middot; d &middot; c                 <span class="cm"># QK&#7488; and AV, each 2&middot;d&middot;c per layer</span>
+
+prefill(s)  = 2&middot;P&middot;s + 2&middot;L&middot;d&middot;s(s+1)          <span class="cm"># causal: sum of c over 1..s</span>
+decode(B,c) = 2&middot;P&middot;B + 4&middot;L&middot;d&middot;&Sigma;c&#7522;            <span class="cm"># B sequences, contexts c&#7522;</span></code></pre>
+    </div>
+    <div class="table-wrap">
+    <table>
+        <tr><th>Model</th><th>Total params</th><th>Linear FLOPs / token</th><th>Attention FLOPs / token at 8k context</th></tr>
+        <tr><td>Llama-3-8B (32 L, d=4096)</td><td>8.03 B</td><td>15.0 GFLOP</td><td>4.3 GFLOP</td></tr>
+        <tr><td>Llama-3-70B (80 L, d=8192)</td><td>70.6 B</td><td>139 GFLOP</td><td>21.5 GFLOP</td></tr>
+    </table>
+    </div>
+    <p>The parameter counts come from the shapes alone (GQA attention, SwiGLU MLP, untied embeddings) and match the published model sizes; the simulator's unit tests check this. Note that attention FLOPs grow with context and become significant at long context even though the linear layers dominate at short context.</p>
+</section>
+
+<section class="slide" id="slide-03">
+    <div class="slide-number">03</div>
+    <h2>Counting Bytes</h2>
+    <p>Time is set by whichever is slower: doing the arithmetic or moving the data. Bytes moved from HBM per forward pass:</p>
+    <div class="code-block">
+        <div class="code-header">Bytes per step</div>
+        <pre><code>weights      = params &times; bytes_per_weight          <span class="cm"># read once per step, shared by the batch</span>
+kv_per_token = 2 &middot; L &middot; n_kv_heads &middot; head_dim &middot; bytes  <span class="cm"># K and V</span>
+
+prefill(s)   = weights + s &middot; kv_per_token          <span class="cm"># write the new KV</span>
+decode(B,c)  = weights + (&Sigma;c&#7522; + B) &middot; kv_per_token  <span class="cm"># read all KV, write one more token each</span></code></pre>
+    </div>
+    <p>For Llama-3-70B in BF16 the weights are <strong>141 GB</strong>. A decode step must stream all of them from memory however small the batch. On four H100s (4 &times; 3.35 TB/s at 80% achievable) that floor is about <strong>13 ms per step</strong> before a single KV byte is read. Batching amortises this one read across many sequences, which is why serving systems batch hard.</p>
+    <div class="callout">
+        <div class="callout-label">Why quantisation helps decode most</div>
+        <p>FP8 or INT4 weights halve or quarter the dominant term in decode bytes. They do little for prefill, which is compute-bound, unless the arithmetic also runs at lower precision.</p>
+    </div>
+    <div class="callout">
+        <div class="callout-label">Bytes cost energy as well as time</div>
+        <p>Fetching a byte from HBM costs tens of times the energy of a FLOP on it. Decode is therefore an energy problem as well as a bandwidth problem, and the same byte counts drive the simulator's power model (deck 07).</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-04">
+    <div class="slide-number">04</div>
+    <h2>The Roofline</h2>
+    <p>The roofline model (Williams, Waterman &amp; Patterson, 2009) plots attainable performance against <strong>arithmetic intensity</strong> <em>I</em> = FLOPs / bytes. Below the ridge point the kernel is memory-bound; above it, compute-bound.</p>
+    <div class="code-block">
+        <div class="code-header">Roofline time for one step</div>
+        <pre><code>t = max( FLOPs / (peak_flops &middot; MFU_eff),  bytes / (mem_bw &middot; MBU_eff) ) + overhead
+ridge = (peak_flops &middot; MFU_eff) / (mem_bw &middot; MBU_eff)        <span class="cm"># H100: 295 FLOP/B at peak, ~203 derated</span></code></pre>
+    </div>
+    <div class="table-wrap">
+    <table>
+        <tr><th>Llama-3-70B on 4&times;H100</th><th>Intensity (FLOP/B)</th><th>Bound</th><th>Step time</th></tr>
+        <tr><td>Decode, batch 1, 2k context</td><td>1.0</td><td>memory</td><td>13.7 ms</td></tr>
+        <tr><td>Decode, batch 32</td><td>28</td><td>memory</td><td>15.7 ms</td></tr>
+        <tr><td>Decode, batch 256</td><td>118</td><td>memory</td><td>29.7 ms</td></tr>
+        <tr><td>Prefill, 128-token prompt</td><td>126</td><td>memory</td><td>13.7 ms</td></tr>
+        <tr><td>Prefill, 2,048-token prompt</td><td>2,047</td><td>compute</td><td>134 ms</td></tr>
+    </table>
+    </div>
+    <p>Two lessons. In BF16 decode, intensity is roughly the batch size, so you need hundreds of concurrent sequences to approach the ridge, and the KV reads pull it further down. Prefill crosses the ridge after a few hundred tokens. These numbers come from the same cost model used in the simulator.</p>
+</section>
+
+<section class="slide" id="slide-05">
+    <div class="slide-number">05</div>
+    <h2>Interactive: Put a Batch on the Roofline</h2>
+    <p>Choose a model and device, then move the decode batch, the context length and the prompt length. Both phases are plotted on a log&ndash;log roofline.</p>
+    <div class="control-panel">
+        <div class="sim-grid">
+            <div class="control-row"><label for="rl-model">Model</label>
+                <select id="rl-model"><option value="8b">Llama-3-8B</option><option value="70b" selected>Llama-3-70B</option></select></div>
+            <div class="control-row"><label for="rl-dev">Device</label>
+                <select id="rl-dev"><option value="h100" selected>H100-SXM</option><option value="a100">A100-SXM</option><option value="optical">Hypothetical optical MAC</option></select></div>
+            <div class="control-row"><label for="rl-n">Devices / instance</label><input type="range" id="rl-n" min="1" max="8" value="4"><span class="val" id="rl-n-val">4</span></div>
+            <div class="control-row"><label for="rl-b">Decode batch</label><input type="range" id="rl-b" min="0" max="10" value="5"><span class="val" id="rl-b-val">32</span></div>
+            <div class="control-row"><label for="rl-c">Context (tokens)</label><input type="range" id="rl-c" min="7" max="15" value="11"><span class="val" id="rl-c-val">2048</span></div>
+            <div class="control-row"><label for="rl-s">Prompt (tokens)</label><input type="range" id="rl-s" min="5" max="14" value="11"><span class="val" id="rl-s-val">2048</span></div>
+        </div>
+        <div class="canvas-wrap" style="padding:0.5rem;"><canvas id="rl-canvas" width="840" height="360"></canvas></div>
+        <div class="metric-grid">
+            <div class="metric"><div class="metric-label">Decode step</div><div class="metric-value" id="rl-dt">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">Decode tok/s</div><div class="metric-value" id="rl-dtps">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">Prefill step</div><div class="metric-value" id="rl-pt">&mdash;</div></div>
+            <div class="metric"><div class="metric-label">KV fits (tokens)</div><div class="metric-value" id="rl-kv">&mdash;</div></div>
+        </div>
+    </div>
+    <script>
+    (function(){
+        const MODELS = { '8b': { L: 32, d: 4096, h: 32, kvh: 8, ff: 14336, V: 128256 },
+                         '70b': { L: 80, d: 8192, h: 64, kvh: 8, ff: 28672, V: 128256 } };
+        const DEVS = { h100: { F: 989e12, B: 3.35e12, M: 80e9, fe: 0.55, be: 0.8 },
+                       a100: { F: 312e12, B: 2.039e12, M: 80e9, fe: 0.55, be: 0.8 },
+                       optical: { F: 4000e12, B: 3.35e12, M: 80e9, fe: 0.4, be: 0.8 } };
+        function derive(m){ const hd = m.d / m.h, kv = m.kvh * hd, ppl = 2*m.d*m.d + 2*m.d*kv + 3*m.d*m.ff;
+            return { ...m, P: m.L*ppl + 2*m.V*m.d, Pm: m.L*ppl + m.V*m.d, kvTok: 2*m.L*kv*2 }; }
+        const $ = id => document.getElementById(id);
+        function rec(){
+            const m = derive(MODELS[$('rl-model').value]), D = DEVS[$('rl-dev').value], n = +$('rl-n').value;
+            const B = Math.pow(2, +$('rl-b').value), c = Math.pow(2, +$('rl-c').value), s = Math.pow(2, +$('rl-s').value);
+            $('rl-n-val').textContent = n; $('rl-b-val').textContent = B; $('rl-c-val').textContent = c; $('rl-s-val').textContent = s;
+            const Fr = D.F*D.fe*n, Br = D.B*D.be*n, W = m.P*2;
+            const dF = 2*m.Pm*B + 4*m.L*m.d*B*c, dB = W + (B*c + B)*m.kvTok;
+            const pF = 2*m.Pm*s + 2*m.L*m.d*s*(s+1), pB = W + s*m.kvTok;
+            const tD = Math.max(dF/Fr, dB/Br) + 5e-4, tP = Math.max(pF/Fr, pB/Br) + 5e-4;
+            const free = D.M*n*0.9 - W;
+            $('rl-dt').textContent = (tD*1e3).toFixed(1) + ' ms';
+            $('rl-dtps').textContent = Math.round(B / tD).toLocaleString();
+            $('rl-pt').textContent = (tP*1e3).toFixed(0) + ' ms';
+            $('rl-kv').textContent = free > 0 ? Math.floor(free / m.kvTok).toLocaleString() : "doesn't fit";
+            draw(Fr, Br, [{ I: dF/dB, P: dF/(tD-5e-4), lab: 'decode B=' + B, col: '#e3b174' },
+                          { I: pF/pB, P: pF/(tP-5e-4), lab: 'prefill s=' + s, col: '#d7bbdf' }]);
+        }
+        function draw(Fr, Br, pts){
+            const cv = $('rl-canvas'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
+            g.clearRect(0, 0, W, H);
+            const x0 = 70, x1 = W - 20, y0 = H - 40, y1 = 20;
+            const lx = [-1, 5], ly = [11, 16.5];
+            const X = I => x0 + (Math.log10(I) - lx[0]) / (lx[1] - lx[0]) * (x1 - x0);
+            const Y = P => y0 - (Math.log10(P) - ly[0]) / (ly[1] - ly[0]) * (y0 - y1);
+            g.strokeStyle = '#3a322b'; g.fillStyle = '#a2978b'; g.font = '11px "Geist Mono", monospace';
+            for (let e = lx[0]; e <= lx[1]; e++) { g.beginPath(); g.moveTo(X(10**e), y0); g.lineTo(X(10**e), y1); g.stroke(); g.fillText('1e' + e, X(10**e) - 10, y0 + 15); }
+            for (let e = 11; e <= 16; e++) { g.beginPath(); g.moveTo(x0, Y(10**e)); g.lineTo(x1, Y(10**e)); g.stroke(); g.fillText(10**(e-12) >= 1 ? (10**(e-12)) + ' TF/s' : (10**(e-9)) + ' GF/s', 4, Y(10**e) + 4); }
+            g.fillText('arithmetic intensity (FLOP / byte)', W/2 - 110, H - 6);
+            g.strokeStyle = '#aabd59'; g.lineWidth = 2.5; g.beginPath();
+            const ridge = Fr / Br;
+            g.moveTo(X(10**lx[0]), Y(Br * 10**lx[0])); g.lineTo(X(ridge), Y(Fr)); g.lineTo(X(10**lx[1]), Y(Fr)); g.stroke();
+            g.lineWidth = 1; g.fillStyle = '#aabd59'; g.fillText('ridge ' + ridge.toFixed(0) + ' FLOP/B', X(ridge) + 6, Y(Fr) + 16);
+            pts.forEach(p => { g.fillStyle = p.col; g.beginPath(); g.arc(X(p.I), Y(p.P), 6, 0, 7); g.fill();
+                g.fillText(p.lab, Math.min(X(p.I) + 9, W - 130), Y(p.P) - 8); });
+        }
+        ['rl-model','rl-dev','rl-n','rl-b','rl-c','rl-s'].forEach(id => $(id).addEventListener('input', rec));
+        rec();
+    })();
+    </script>
+    <p style="font-size: 0.85rem;">Try the <em>hypothetical optical MAC</em>: four times the matmul throughput, same memory. Prefill speeds up; decode hardly moves, because it is bandwidth-bound. Any novel compute fabric has to answer the memory question as well.</p>
+</section>
+
+<section class="slide" id="slide-06">
+    <div class="slide-number">06</div>
+    <h2>KV-Cache Arithmetic</h2>
+    <p>The KV cache holds K and V for every layer and every token of every live sequence. With grouped-query attention (GQA) only the <code>n_kv_heads</code> are stored.</p>
+    <div class="table-wrap">
+    <table>
+        <tr><th></th><th>Llama-3-8B</th><th>Llama-3-70B</th></tr>
+        <tr><td>KV per token (BF16)</td><td>2&middot;32&middot;8&middot;128&middot;2 = <strong>128 KiB</strong></td><td>2&middot;80&middot;8&middot;128&middot;2 = <strong>320 KiB</strong></td></tr>
+        <tr><td>One 2,048-token prompt</td><td>268 MB</td><td>671 MB</td></tr>
+        <tr><td>Capacity at 90% HBM, after weights</td><td>~430k tokens on 1&times;H100</td><td>~448k tokens on 4&times;H100</td></tr>
+    </table>
+    </div>
+    <ul>
+        <li><strong>Capacity limits the batch</strong>, and the batch sets decode efficiency. A serving simulator must track KV occupancy and admit requests only when their KV fits.</li>
+        <li><strong>Every byte of KV is read every decode step</strong>, so long contexts make decode more memory-bound still.</li>
+        <li><strong>The KV cache is what disaggregation must move.</strong> 671 MB per 2k-token prompt for 70B is 13 ms on a 50 GB/s InfiniBand NDR link, 1.5 ms on NVLink, and 215 ms on 25 GbE.</li>
+    </ul>
+</section>
+
+<section class="slide" id="slide-07">
+    <div class="slide-number">07</div>
+    <h2>Batching: Static, Continuous, Chunked, Paged</h2>
+    <div class="table-wrap">
+    <table>
+        <tr><th>Technique</th><th>Idea</th><th>What the simulator must model</th></tr>
+        <tr><td><strong>Static batching</strong></td><td>Form a batch, run it until every member finishes</td><td>Batch formation; the slowest request holds the batch</td></tr>
+        <tr><td><strong>Continuous batching</strong> (Orca, OSDI 2022)</td><td>Re-form the batch at every iteration; finished sequences leave, new ones join</td><td>An iteration-level scheduler loop: the core of every serving simulator</td></tr>
+        <tr><td><strong>Paged KV</strong> (vLLM PagedAttention, SOSP 2023)</td><td>KV in fixed-size blocks with a block table, allocated on demand</td><td>KV capacity in blocks; admission, pre-emption and swapping when full</td></tr>
+        <tr><td><strong>Chunked prefill</strong> (Sarathi-Serve, OSDI 2024)</td><td>Split long prefills into chunks and piggy-back decodes on each step</td><td>A per-step token budget mixing prefill chunks and decode tokens</td></tr>
+        <tr><td><strong>Prefix caching</strong></td><td>Reuse KV for shared prompt prefixes</td><td>Hit rates from the workload; cache eviction</td></tr>
+        <tr><td><strong>Speculative decoding</strong></td><td>A draft model proposes k tokens; the target verifies them in one pass</td><td>Acceptance-rate distribution; extra compute per step</td></tr>
+    </table>
+    </div>
+    <p>Chunked prefill and disaggregation are two answers to the same interference problem. The first bounds the stall; the second removes it by putting the phases on different hardware.</p>
+</section>
+
+<section class="slide" id="slide-08">
+    <div class="slide-number">08</div>
+    <h2>Parallelism and Its Communication Bill</h2>
+    <p>Large models span many devices. Each form of parallelism adds communication that the simulator must cost on the interconnect.</p>
+    <div class="table-wrap">
+    <table>
+        <tr><th>Form</th><th>Split</th><th>Communication</th><th>Typical fabric</th></tr>
+        <tr><td>Tensor (TP)</td><td>Each weight matrix across devices</td><td>Two all-reduces of the activations per layer</td><td>NVLink / scale-up</td></tr>
+        <tr><td>Pipeline (PP)</td><td>Layers across devices</td><td>Point-to-point activations between stages; bubbles</td><td>Any</td></tr>
+        <tr><td>Expert (EP)</td><td>MoE experts across devices</td><td>All-to-all dispatch and combine per MoE layer</td><td>Scale-up or fast scale-out</td></tr>
+        <tr><td>Data / replica</td><td>Whole model copies</td><td>None at inference, apart from routing</td><td>&mdash;</td></tr>
+        <tr><td>Disaggregated</td><td>Prefill and decode on separate pools</td><td>KV-cache transfer per request</td><td>RDMA / NVLink</td></tr>
+    </table>
+    </div>
+    <div class="code-block">
+        <div class="code-header">Ring all-reduce cost (bandwidth term)</div>
+        <pre><code>t_allreduce &asymp; 2 &middot; (n &minus; 1) / n &middot; bytes / link_bw  +  2 &middot; (n &minus; 1) &middot; latency</code></pre>
+    </div>
+    <p>The companion simulator treats a TP group as one larger device and ignores the all-reduce, a simplification its README states plainly. Adding it is a good first extension, and ASTRA-sim (deck 04) is the tool for when collectives are the question.</p>
+</section>
+
+<section class="slide" id="slide-09">
+    <div class="slide-number">09</div>
+    <h2>The Metrics Users Feel: TTFT, TPOT, Goodput</h2>
+    <div class="table-wrap">
+    <table>
+        <tr><th>Metric</th><th>Definition</th><th>Set mainly by</th></tr>
+        <tr><td><strong>TTFT</strong></td><td>Arrival to first output token</td><td>Prefill queueing and prefill compute</td></tr>
+        <tr><td><strong>TPOT</strong></td><td>(finish &minus; first token) / (output tokens &minus; 1)</td><td>Decode step time, batch size, interference</td></tr>
+        <tr><td><strong>ITL</strong></td><td>Gap between consecutive tokens of one request</td><td>As TPOT, but shows the stalls that the mean hides</td></tr>
+        <tr><td><strong>E2E latency</strong></td><td>Arrival to last token</td><td>Everything</td></tr>
+        <tr><td><strong>Throughput</strong></td><td>Output tokens/s, or requests/s</td><td>Batch size and utilisation</td></tr>
+        <tr><td><strong>Goodput</strong></td><td>Requests/s that meet <em>both</em> the TTFT and TPOT SLOs</td><td>The balance of all the above: the metric DistServe optimises</td></tr>
+        <tr><td><strong>MFU / MBU</strong></td><td>Achieved FLOP/s or bytes/s as a fraction of peak</td><td>How well the hardware is used</td></tr>
+        <tr><td><strong>Energy per token</strong></td><td>Joules per output token (or tokens per joule)</td><td>Static power, FLOP and byte energy, utilisation (deck 07)</td></tr>
+    </table>
+    </div>
+    <div class="callout">
+        <div class="callout-label">Always percentiles</div>
+        <p>Report p50, p90 and p99, never the mean alone. Interference from colocated prefill barely moves the mean ITL but can multiply the p99 by ten, as the simulator in deck 05 shows.</p>
+    </div>
+</section>
+
+<section class="slide" id="slide-10">
+    <div class="slide-number">10</div>
+    <h2>A Cost-Model Checklist</h2>
+    <p>The roofline gets the first-order answer. Before trusting a simulator's absolute numbers, check what it does about each of these:</p>
+    <div class="diagram-grid cols-2">
+        <div class="diagram-panel accent-border">
+            <h4>Usually modelled</h4>
+            <ul>
+                <li>Weight and KV bytes per step</li>
+                <li>Linear and attention FLOPs</li>
+                <li>Achievable efficiency (MFU and MBU derating)</li>
+                <li>KV capacity and admission</li>
+                <li>Per-step fixed overhead</li>
+            </ul>
+        </div>
+        <div class="diagram-panel accent-border">
+            <h4>Often missed</h4>
+            <ul>
+                <li>Kernel efficiency that varies with shape (small batches, odd sizes)</li>
+                <li>CPU-side scheduler and sampling time</li>
+                <li>TP all-reduce and MoE all-to-all</li>
+                <li>Expert load imbalance in MoE</li>
+                <li>Quantised formats and dequantisation cost</li>
+                <li>Data conversion and precision overheads on novel hardware</li>
+            </ul>
+        </div>
+    </div>
+    <p>The professional fix is calibration: profile real kernels (or RTL), fit per-operator tables, and let the simulator interpolate. This is Vidur's approach, and the one deck 06 builds into a validation flow.</p>
+</section>
+
+<section class="slide" id="slide-11">
+    <div class="slide-number">11</div>
+    <h2>What to Take Away</h2>
+    <ul>
+        <li><strong>Prefill is compute-bound GEMM; decode is bandwidth-bound GEMV.</strong> Model them separately.</li>
+        <li><strong>FLOPs &asymp; 2&middot;P per token plus attention; bytes &asymp; all the weights per step plus all the KV.</strong></li>
+        <li><strong>The roofline gives step times</strong> good to first order, and shows why decode needs big batches.</li>
+        <li><strong>KV capacity limits batch size</strong>, and KV size is what disaggregation must move.</li>
+        <li><strong>Continuous batching is the scheduler loop</strong> every serving simulator implements.</li>
+        <li><strong>Report percentiles and goodput</strong>, not means and raw throughput.</li>
+    </ul>
+    <div class="callout">
+        <div class="callout-label">Next</div>
+        <p>Deck 04 surveys the existing LLM simulators: what each models, at which level, and when to reach for which.</p>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════ Footer ════════════════════════════════════ -->
+<footer class="footer">
+    <p>Part of the <a href="https://github.com/BrendanJamesLynskey/LLM_Hub_Inference_Simulators">LLM Inference Simulators series</a> &middot; code: <a href="https://github.com/BrendanJamesLynskey/Disaggregated_Inference_Sim">Disaggregated_Inference_Sim</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://brendanjameslynskey.github.io/InfSim_02_Simulator_Development_Tutorial/">&larr; 02 Simulator Development: A Hands-On Tutorial</a> &nbsp;&middot;&nbsp; <a href="https://brendanjameslynskey.github.io/InfSim_04_Simulator_Landscape/">04 The LLM Simulator Landscape &rarr;</a></p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;"><a href="https://github.com/BrendanJamesLynskey/LLMs#hardware--inference">Back to the LLMs hub</a></p>
+</footer>
+
+<script>
+    // Smooth scroll for TOC links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    // Subtle fade-in on scroll
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.slide').forEach(slide => {
+        slide.style.opacity = '0';
+        slide.style.transform = 'translateY(30px)';
+        slide.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(slide);
+    });
+</script>
+
+</body>
+</html>
