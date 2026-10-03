@@ -884,7 +884,7 @@
 attention at pos c 4 &middot; L &middot; d &middot; c                 <span class="cm"># QK&#7488; and AV, each 2&middot;d&middot;c per layer</span>
 
 prefill(s)  = 2&middot;P&middot;s + 2&middot;L&middot;d&middot;s(s+1)          <span class="cm"># causal: sum of c over 1..s</span>
-decode(B,c) = 2&middot;P&middot;B + 4&middot;L&middot;d&middot;&Sigma;c&#7522;            <span class="cm"># B sequences, contexts c&#7522;</span></code></pre>
+decode(B,c) = 2&middot;P&middot;B + 4&middot;L&middot;d&middot;(&Sigma;c&#7522; + B)       <span class="cm"># B sequences, c&#7522; cached tokens each, + itself</span></code></pre>
     </div>
     <div class="table-wrap">
     <table>
@@ -902,13 +902,15 @@ decode(B,c) = 2&middot;P&middot;B + 4&middot;L&middot;d&middot;&Sigma;c&#7522;  
     <p>Time is set by whichever is slower: doing the arithmetic or moving the data. Bytes moved from HBM per forward pass:</p>
     <div class="code-block">
         <div class="code-header">Bytes per step</div>
-        <pre><code>weights      = params &times; bytes_per_weight          <span class="cm"># read once per step, shared by the batch</span>
+        <pre><code>weights      = (params &minus; V&middot;d) &times; bytes_per_weight   <span class="cm"># layers + LM head, once per step</span>
+emb(n)       = n &middot; d &middot; bytes_per_weight            <span class="cm"># embedding lookup: rows used only</span>
 kv_per_token = 2 &middot; L &middot; n_kv_heads &middot; head_dim &middot; bytes  <span class="cm"># K and V</span>
 
-prefill(s)   = weights + s &middot; kv_per_token          <span class="cm"># write the new KV</span>
-decode(B,c)  = weights + (&Sigma;c&#7522; + B) &middot; kv_per_token  <span class="cm"># read all KV, write one more token each</span></code></pre>
+prefill(s)   = weights + emb(s) + s &middot; kv_per_token          <span class="cm"># write the new KV</span>
+decode(B,c)  = weights + emb(B) + (&Sigma;c&#7522; + B) &middot; kv_per_token  <span class="cm"># read all KV, write one more token each</span></code></pre>
     </div>
-    <p>For Llama-3-70B in BF16 the weights are <strong>141 GB</strong>. A decode step must stream all of them from memory however small the batch. On four H100s (4 &times; 3.35 TB/s at 80% achievable) that floor is about <strong>13 ms per step</strong> before a single KV byte is read. Batching amortises this one read across many sequences, which is why serving systems batch hard.</p>
+    <p>For Llama-3-70B in BF16 the weights occupy <strong>141 GB</strong>. A decode step must stream 139 GB of them from memory however small the batch: everything except the 2.1 GB input-embedding table, of which it reads only the rows its tokens look up. On four H100s (4 &times; 3.35 TB/s at 80% achievable) that floor is about <strong>13 ms per step</strong> before a single KV byte is read. Batching amortises this one read across many sequences, which is why serving systems batch hard.</p>
+    <p><em>Corrected on 2026-10-03.</em> Until then the simulator charged every step all 141 GB, embedding table included, and left out each decoded token's attention to itself (slide 02). Tracing the real model found both (<a href="https://brendanjameslynskey.github.io/SimEng_10_PyTorch_ONNX_Frontends/#slide-09">Toolkit deck 10</a>). The floor moved from 13.16 to 12.97 ms.</p>
     <div class="callout">
         <div class="callout-label">Why quantisation helps decode most</div>
         <p>FP8 or INT4 weights halve or quarter the dominant term in decode bytes. They do little for prefill, which is compute-bound, unless the arithmetic also runs at lower precision.</p>
@@ -1129,7 +1131,7 @@ ridge = (peak_flops &middot; MFU_eff) / (mem_bw &middot; MBU_eff)        <span c
     <h2>What to Take Away</h2>
     <ul>
         <li><strong>Prefill is compute-bound GEMM; decode is bandwidth-bound GEMV.</strong> Model them separately.</li>
-        <li><strong>FLOPs &asymp; 2&middot;P per token plus attention; bytes &asymp; all the weights per step plus all the KV.</strong></li>
+        <li><strong>FLOPs &asymp; 2&middot;P per token plus attention; bytes &asymp; all the weights per step (bar the embedding table, a lookup) plus all the KV.</strong></li>
         <li><strong>The roofline gives step times</strong> good to first order, and shows why decode needs big batches.</li>
         <li><strong>KV capacity limits batch size</strong>, and KV size is what disaggregation must move.</li>
         <li><strong>Continuous batching is the scheduler loop</strong> every serving simulator implements.</li>
